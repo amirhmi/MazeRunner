@@ -263,7 +263,7 @@ int myLed = 13; // Set up pin 13 led for toggling
 int16_t accelCount[3];  // Stores the 16-bit signed accelerometer sensor output
 int16_t gyroCount[3];   // Stores the 16-bit signed gyro sensor output
 int16_t magCount[3];    // Stores the 16-bit signed magnetometer sensor output
-float magCalibration[3] = {0, 0, 0}, magbias[3] = {0, 0, 0}, magscale[3] = {0, 0, 0}; // Factory mag calibration and mag bias
+float magCalibration[3] = {0, 0, 0}, magbias[3] = {-28.77, 55.92, 381.41}, magscale[3] = {0.74, 0.75, 3.16}; // Factory mag calibration and mag bias
 float gyroBias[3] = {0, 0, 0}, accelBias[3] = {0, 0, 0};      // Bias corrections for gyro and accelerometer
 int16_t tempCount;      // temperature raw count output
 float   temperature;    // Stores the real internal chip temperature in degrees Celsius
@@ -315,7 +315,7 @@ void loop()
   float myHeading = getHeading();
   Serial.print(myHeading);
   Serial.print("\t");
-  if (millis() - startTime > 1000)
+  if (millis() - startTime > 7000)
   {
   //Serial.println(myHeading);
   float headingDiff = (startHeading + 360) - (myHeading);
@@ -1070,19 +1070,15 @@ float getHeading()
   
     readMagData(magCount);  // Read the x/y/z adc values
     getMres();
-    magbias[0] = +470.;
-    magbias[1] = +120.;
-    magbias[2] = +125.;
-    
     
     // Calculate the magnetometer values in milliGauss
     // Include factory calibration per data sheet and user environmental corrections
     mx = (float)magCount[0]*mRes*magCalibration[0] - magbias[0];  // get actual magnetometer value, this depends on scale being set
     my = (float)magCount[1]*mRes*magCalibration[1] - magbias[1];  
     mz = (float)magCount[2]*mRes*magCalibration[2] - magbias[2];   
-//    mx *= magscale[0];
-//    my *= magscale[1];
-//    mz *= magscale[2];
+    mx *= magscale[0];
+    my *= magscale[1];
+    mz *= magscale[2];
   }
   
   Now = micros();
@@ -1106,6 +1102,13 @@ float getHeading()
     if (!AHRS) {
     delt_t = millis() - count;
     if(delt_t > 500) {
+
+    if(SerialDebug) {
+ 
+    tempCount = readTempData();  // Read the adc values
+    temperature = ((float) tempCount) / 333.87 + 21.0; // Temperature in degrees Centigrade
+   // Print temperature in degrees Centigrade
+    }
     
     count = millis();
     digitalWrite(myLed, !digitalRead(myLed));  // toggle led
@@ -1115,7 +1118,7 @@ float getHeading()
       
     // Serial print and/or display at 0.5 s rate independent of data rates
     delt_t = millis() - count;
-    if (delt_t > 500) { // update LCD once per half-second independent of read rate
+    if (delt_t > 500) { // update LCD once per half-second independent of read rate            
     
   // Define output variables from updated quaternion---these are Tait-Bryan angles, commonly used in aircraft orientation.
   // In this coordinate system, the positive z-axis is down toward Earth. 
@@ -1151,7 +1154,7 @@ float getHeading()
     sum = 0;    
     }
     }
-    return yaw;
+    return yaw + 14;
 }
 
 float getHeadingSpark()
@@ -1195,6 +1198,5 @@ float getHeadingSpark()
 //   Serial.println("yaw" + String( yaw ));
    pre_ts=millis();
      return yaw;
-
   }
 }
