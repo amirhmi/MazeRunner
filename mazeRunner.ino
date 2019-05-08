@@ -29,6 +29,11 @@
 #include <Wire.h>
 #include <Stepper.h>
 
+#define SerialPort Serial
+#include <SparkFunMPU9250-DMP.h>
+MPU9250_DMP imu;
+long int pre_ts=0;
+
 #define STEPS (200)
 
 #define ONE_REV ((360 / 5.625) * 32)
@@ -45,7 +50,7 @@
 #define RB (1 * STEP_PER_TICK)
 
 #define THRESH (3)
-#define SAFETHRESH (1)
+#define SAFETHRESH (1.25)
 
 Stepper leftMotor(STEPS, 8, 10, 9, 11);
 Stepper rightMotor(STEPS, 4, 6, 5, 7);
@@ -1013,6 +1018,34 @@ getMres();
   }
  }
 
+ void imuSetupSpark() {
+  {
+  Serial.begin(38400);
+   if (imu.begin() != INV_SUCCESS)
+  {
+    while (1)
+    {
+      SerialPort.println("Unable to communicate with MPU-9250");
+      SerialPort.println("Check connections, and try again.");
+      SerialPort.println();
+      delay(3000);
+    }
+  }
+
+ 
+  imu.setSensors(INV_XYZ_GYRO | INV_XYZ_ACCEL | INV_XYZ_COMPASS);
+
+ 
+  imu.setGyroFSR(250); // Set gyro to 2000 dps
+  // Accel options are +/- 2, 4, 8, or 16 g
+  imu.setAccelFSR(2); // Set accel to +/-2g
+  imu.setLPF(10); // Set LPF corner frequency to 5Hz
+  imu.setSampleRate(10); // Set sample rate to 10Hz
+  imu.setCompassSampleRate(50); // Set mag rate to 10Hz
+}
+
+  pre_ts=millis();
+ }
 
 float getHeading()
 {
@@ -1119,4 +1152,49 @@ float getHeading()
     }
     }
     return yaw;
+}
+
+float getHeadingSpark()
+{
+  if ( imu.dataReady() )
+  {
+    imu.update(UPDATE_ACCEL | UPDATE_GYRO | UPDATE_COMPASS);
+  float dt = millis()-pre_ts;
+  float accelX = imu.calcAccel(imu.ax);
+  float accelY = imu.calcAccel(imu.ay);
+  float accelZ = imu.calcAccel(imu.az);
+  float gyroX = imu.calcGyro(imu.gx)/57.3;
+  float gyroY = imu.calcGyro(imu.gy)/57.3;
+  float gyroZ = imu.calcGyro(imu.gz)/57.3;
+  float magX = imu.calcMag(imu.mx);
+  float magY = imu.calcMag(imu.my);
+  float magZ = imu.calcMag(imu.mz);
+
+  float heading = atan2(magY, magX)*180./PI;
+
+////Euler angle from accel
+//
+// 
+   pitch = atan2 (accelY ,( sqrt ((accelX * accelX) + (accelZ * accelZ))));
+   roll = atan2(-accelX ,( sqrt((accelY * accelY) + (accelZ * accelZ))));
+
+   // yaw from mag
+
+   float Yh = (magY * cos(roll)) - (magZ * sin(roll));
+   float Xh = (magX * cos(pitch))+(magY * sin(roll)*sin(pitch)) + (magZ * cos(roll) * sin(pitch));
+
+   yaw =  atan2(Yh, Xh);
+
+
+    roll = roll*57.3;
+    pitch = pitch*57.3;
+    yaw = yaw*57.3;
+   
+//   Serial.println("pitch"  + String( pitch) );
+//   Serial.println("roll" + String( roll));
+//   Serial.println("yaw" + String( yaw ));
+   pre_ts=millis();
+     return yaw;
+
+  }
 }
