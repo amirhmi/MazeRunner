@@ -7,7 +7,8 @@
 #define ONE_CM (ONE_REV / 18.2)
 #define WHEELS_DIST (16.7)
 
-#define LEFT_FORWARD (1)
+#define STEP_NUM (100)
+#define LEFT_FORWARD (1) 
 #define LEFT_BACK (-1)
 #define RIGHT_FORWARD (-1)
 #define RIGHT_BACK (1)
@@ -29,6 +30,11 @@ Stepper stepperRight(STEPS, 4, 6, 5, 7);
 #define MIN_PING_DIST (20)
 #define DEADEND_DIST (150)
 
+
+enum {
+  forward, turn180, turnLeft, turnRight
+}state;
+
 HCSR04 left_hcsr04(SR_LEFT_TRIG, SR_LEFT_ECHO, MIN_PING_DIST, MAX_PING_DIST);
 HCSR04 right_hcsr04(SR_RIGHT_TRIG, SR_RIGHT_ECHO, MIN_PING_DIST, MAX_PING_DIST);
 HCSR04 front_hcsr04(SR_FRONT_TRIG, SR_FRONT_ECHO, MIN_PING_DIST, MAX_PING_DIST);
@@ -39,7 +45,6 @@ HCSR04 front_hcsr04(SR_FRONT_TRIG, SR_FRONT_ECHO, MIN_PING_DIST, MAX_PING_DIST);
 //Global variables
 unsigned long leftDist, rightDist, frontDist;
 bool leftWall, rightWall, frontWall;
-int state;
 
 void setup(){
   //Serial initilization
@@ -63,6 +68,7 @@ void readUltrasonicData(void) {
 
 void checkWalls()
 {
+  //checking walls
   if (rightDist < DEADEND_DIST)
     rightWall = true;
   else
@@ -78,18 +84,42 @@ void checkWalls()
   else
     frontWall = false;
 
-  Serial.print("leftWall: " + String(leftWall));
-  Serial.print("\nrightWall: " + String(rightWall));
-  Serial.println("\nfrontWall: " + String(frontWall));
-  delay(500);
+//  Serial.print("leftWall: " + String(leftWall));
+//  Serial.print("\trightWall: " + String(rightWall));
+//  Serial.println("\tfrontWall: " + String(frontWall));
 }
 
 void checkState()
 {
-  
+  if (!leftWall)
+    state = turnLeft;
+  else if (!frontWall)
+    state = forward;
+  else if (!rightWall)
+    state = turnRight;
+  else
+    state = turn180;
+//  Serial.println(String(state));
+}
+
+void moveSteps(int rightMove, int leftMove)
+{
+  for (int i = 0; i < STEP_NUM; i++)
+  {
+    stepperLeft.step(LEFT_FORWARD * leftMove);
+    stepperRight.step(RIGHT_FORWARD * rightMove);
+  }
+}
+
+void moveByState()
+{
+  if (state == forward)
+    moveSteps(1, 1);
 }
 
 void loop() {
   readUltrasonicData();
   checkWalls();
+  checkState();
+  moveByState();
 }
