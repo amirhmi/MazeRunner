@@ -55,8 +55,8 @@ void loop() {
 //  }
 
 //     Output the distance in mm
-  Serial.print("left: " + String(leftDist));
-  Serial.print("\tright :" + String(rightDist));
-  Serial.println("\tfront :" + String(frontDist));
-  delay(250);
+//  Serial.print("left: " + String(leftDist));
+//  Serial.print("\tright :" + String(rightDist));
+//  Serial.println("\tfront :" + String(frontDist));
+//  delay(250);
 }
