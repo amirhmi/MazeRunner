@@ -1,4 +1,4 @@
-#include <hcsr04.h>
+#include <NewPing.h>
 #include <Stepper.h>
 #include <Time.h>
 
@@ -26,9 +26,11 @@ Stepper stepperRight(STEPS, 4, 6, 5, 7);
 #define SR_FRONT_TRIG 12
 #define SR_FRONT_ECHO 13
 
-HCSR04 left_hcsr04(SR_LEFT_TRIG, SR_LEFT_ECHO, 20, 4000);
-HCSR04 right_hcsr04(SR_RIGHT_TRIG, SR_RIGHT_ECHO, 20, 4000);
-HCSR04 front_hcsr04(SR_FRONT_TRIG, SR_FRONT_ECHO, 20, 4000);
+#define MAX_PING_DIST 100
+
+NewPing left_hcsr04(SR_LEFT_TRIG, SR_LEFT_ECHO, MAX_PING_DIST);
+NewPing right_hcsr04(SR_RIGHT_TRIG, SR_RIGHT_ECHO, MAX_PING_DIST);
+NewPing front_hcsr04(SR_FRONT_TRIG, SR_FRONT_ECHO, MAX_PING_DIST);
 
 //Timer for SR04
 #define SR_TIMER 500
@@ -50,9 +52,9 @@ void setup(){
 }
 
 void readUltrasonicData(void) {
-  leftDist = left_hcsr04.distanceInMillimeters();
-  rightDist = right_hcsr04.distanceInMillimeters();
-  frontDist = front_hcsr04.distanceInMillimeters();
+  leftDist = left_hcsr04.ping_cm();
+  rightDist = right_hcsr04.ping_cm();
+  frontDist = front_hcsr04.ping_cm();
 
   //     Output the distance in mm
 //  Serial.print("left: " + String(leftDist));
@@ -61,13 +63,14 @@ void readUltrasonicData(void) {
 }
 
 void loop() {
-  if(millis() - curTime > SR_TIMER) {
-    readUltrasonicData();
-    curTime = millis();
-  }
-  if(frontDist > 100) {
-  stepperRight.step(RIGHT_FORWARD);
-  stepperLeft.step(LEFT_FORWARD);
+//  if(millis() - curTime > SR_TIMER) {
+//    readUltrasonicData();
+//    curTime = millis();
+//  }
+  readUltrasonicData();
+  if(frontDist > 10) {
+  stepperRight.step(RIGHT_FORWARD * 10);
+  stepperLeft.step(LEFT_FORWARD * 10);
   }
 
 }
