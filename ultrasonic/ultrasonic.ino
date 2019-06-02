@@ -32,7 +32,7 @@ Stepper stepperRight(STEPS, 4, 6, 5, 7);
 
 
 enum {
-  forward, turn180, turnLeft, turnRight
+  forward, turn180, turnLeft, turnRight, afterTurn, beforeTurn
 }state;
 
 HCSR04 left_hcsr04(SR_LEFT_TRIG, SR_LEFT_ECHO, MIN_PING_DIST, MAX_PING_DIST);
@@ -46,6 +46,8 @@ HCSR04 front_hcsr04(SR_FRONT_TRIG, SR_FRONT_ECHO, MIN_PING_DIST, MAX_PING_DIST);
 unsigned long leftDist, rightDist, frontDist;
 bool leftWall, rightWall, frontWall;
 
+int turnSteps;
+
 void setup(){
   //Serial initilization
   Serial.begin(9600);
@@ -55,15 +57,16 @@ void setup(){
   stepperRight.setSpeed(200);
   leftDist = rightDist = frontDist = MAX_PING_DIST;
   leftWall = rightWall = frontWall = false;
+  turnSteps  = 0;
 }
 
 void readUltrasonicData(void) {
   leftDist = left_hcsr04.distanceInMillimeters();
   rightDist = right_hcsr04.distanceInMillimeters();
   frontDist = front_hcsr04.distanceInMillimeters();
-//  Serial.print("left: " + String(leftDist));
-//  Serial.print("\tright :" + String(rightDist));
-//  Serial.println("\tfront :" + String(frontDist));
+  Serial.print("left: " + String(leftDist));
+  Serial.print("\tright :" + String(rightDist));
+  Serial.println("\tfront :" + String(frontDist));
 }
 
 void checkWalls()
@@ -91,6 +94,10 @@ void checkWalls()
 
 void checkState()
 {
+  if (state == beforeTurn)
+    return;
+  if (state == afterTurn)
+    return;
   if (!leftWall)
     state = turnLeft;
   else if (!frontWall)
@@ -113,13 +120,78 @@ void moveSteps(int rightMove, int leftMove)
 
 void moveByState()
 {
-  if (state == forward)
+  if (state == beforeTurn)
+  {
+    if (turnSteps < 10 * ONE_CM)
+    {
+      moveSteps(1, 1);
+      turnSteps += STEP_NUM;
+    }
+    else
+    {
+      turnSteps = 0;
+      state = forward;
+    }
+  }
+  else if (state == afterTurn)
+  {
+    if (turnSteps < 15 * ONE_CM)
+    {
+      moveSteps(1, 1);
+      turnSteps += STEP_NUM;
+    }
+    else
+    {
+      turnSteps = 0;
+      state = forward;
+    }
+  }
+  else if (state == forward)
     moveSteps(1, 1);
+  else if (state == turnLeft)
+  {
+    if (turnSteps < (WHEELS_DIST * PI / 2) * ONE_CM)
+    {
+      moveSteps(1, -1);
+      turnSteps += STEP_NUM;
+    }
+    else
+    {
+      turnSteps = 0;
+      state = afterTurn;
+    }
+  }
+  else if (state == turnRight)
+  {
+    if (turnSteps < (WHEELS_DIST * PI / 2) * ONE_CM)
+    {
+      moveSteps(-1, 1);
+      turnSteps += STEP_NUM;
+    }
+    else
+    {
+      turnSteps = 0;
+      state = afterTurn;
+    }
+  }
+  else if (state == turn180)
+  {
+    if (turnSteps < (WHEELS_DIST * PI / 2) * ONE_CM)
+    {
+      moveSteps(1, -1);
+      turnSteps += STEP_NUM;
+    }
+    else
+    {
+      turnSteps = 0;
+      state = forward;
+    }
+  }
 }
 
 void loop() {
   readUltrasonicData();
-  checkWalls();
-  checkState();
-  moveByState();
+  //checkWalls();
+  //checkState();
+  //moveByState();
 }
