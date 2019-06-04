@@ -29,14 +29,14 @@ Stepper stepperRight(STEPS, 4, 6, 5, 7);
 
 #define MAX_PING_DIST (350)
 #define MIN_PING_DIST (2)
-#define DEADEND_FWD_DIST (6)
+#define DEADEND_FWD_DIST (5)
 #define DEADEND_SIDE_DIST (16)
 #define BEFORE_TURN (23)
-#define AFTER_TURN (15)
+#define AFTER_TURN (12)
 
 
 enum {
-  forward, turn180, turnLeft, turnRight, pause, beforeTurnLeft
+  forward, turn180, turnLeft, turnRight, pause, beforeTurnLeft, afterTurnLeft
 }state;
 
 NewPing left_hcsr04(SR_LEFT_TRIG, SR_LEFT_ECHO, MAX_PING_DIST);
@@ -102,7 +102,7 @@ void checkWalls()
 
 void checkState()
 {
-  if (state == turnRight || state == turnLeft || state == turn180 || state == beforeTurnLeft)
+  if (state == turnRight || state == turnLeft || state == turn180 || state == beforeTurnLeft || state == afterTurnLeft)
     return;
   state = forward;
   if (!leftWall)
@@ -135,10 +135,15 @@ void moveByState()
     moveSteps(1, 1, (BEFORE_TURN) * ONE_CM);
     state = turnLeft;
   }
+  else if (state == afterTurnLeft)
+  {
+    moveSteps(1, 1, (AFTER_TURN) * ONE_CM);
+    state = forward;
+  }
   else if (state == turnLeft)
   {
     moveSteps(1, -1, ((WHEELS_DIST - 1) * PI / 4) * ONE_CM);
-    state = forward;
+    state = afterTurnLeft;
   }
   else if (state == turnRight)
   {
