@@ -1,5 +1,7 @@
 #include <hcsr04.h>
+#include <NewPing.h>
 #include <Stepper.h>
+#include "TimerOne.h"
 
 // Stepper motor defenitions and constructor 
 #define STEPS (200)
@@ -7,7 +9,7 @@
 #define ONE_CM (ONE_REV / 18.2)
 #define WHEELS_DIST (16.7)
 
-#define STEP_NUM (100)
+#define STEP_NUM (10)
 #define LEFT_FORWARD (1) 
 #define LEFT_BACK (-1)
 #define RIGHT_FORWARD (-1)
@@ -16,7 +18,7 @@
 Stepper stepperLeft(STEPS, 8, 10, 9, 11);
 Stepper stepperRight(STEPS, 4, 6, 5, 7);
 
-// Ultrasonic defenitions and constructor 
+// Ultrasonic definitions and constructor 
 #define SR_LEFT_TRIG A1
 #define SR_LEFT_ECHO A0
 
@@ -26,18 +28,23 @@ Stepper stepperRight(STEPS, 4, 6, 5, 7);
 #define SR_FRONT_TRIG 12
 #define SR_FRONT_ECHO 13
 
-#define MAX_PING_DIST (3500)
-#define MIN_PING_DIST (20)
-#define DEADEND_DIST (150)
+#define MAX_PING_DIST (350)
+#define MIN_PING_DIST (2)
+#define DEADEND_DIST (15)
+#define BEFORE_TURN (10)
+#define AFTER_TURN (10)
 
 
 enum {
-  forward, turn180, turnLeft, turnRight, afterTurn, beforeTurn
+  forward, turn180, turnLeft, turnRight, pause
 }state;
 
-HCSR04 left_hcsr04(SR_LEFT_TRIG, SR_LEFT_ECHO, MIN_PING_DIST, MAX_PING_DIST);
-HCSR04 right_hcsr04(SR_RIGHT_TRIG, SR_RIGHT_ECHO, MIN_PING_DIST, MAX_PING_DIST);
-HCSR04 front_hcsr04(SR_FRONT_TRIG, SR_FRONT_ECHO, MIN_PING_DIST, MAX_PING_DIST);
+NewPing left_hcsr04(SR_LEFT_TRIG, SR_LEFT_ECHO, MAX_PING_DIST);
+NewPing right_hcsr04(SR_RIGHT_TRIG, SR_RIGHT_ECHO, MAX_PING_DIST);
+NewPing front_hcsr04(SR_FRONT_TRIG, SR_FRONT_ECHO, MAX_PING_DIST);
+//HCSR04 left_hcsr04(SR_LEFT_TRIG, SR_LEFT_ECHO, MIN_PING_DIST, MAX_PING_DIST);
+//HCSR04 right_hcsr04(SR_RIGHT_TRIG, SR_RIGHT_ECHO, MIN_PING_DIST, MAX_PING_DIST);
+//HCSR04 front_hcsr04(SR_FRONT_TRIG, SR_FRONT_ECHO, MIN_PING_DIST, MAX_PING_DIST);
 
 //Timer for SR04
 #define SR_TIMER (500)
@@ -47,6 +54,9 @@ unsigned long leftDist, rightDist, frontDist;
 bool leftWall, rightWall, frontWall;
 
 int turnSteps;
+
+//lock for stepper motor forward move
+byte stepLock = true;
 
 void setup(){
   //Serial initilization
@@ -58,31 +68,39 @@ void setup(){
   leftDist = rightDist = frontDist = MAX_PING_DIST;
   leftWall = rightWall = frontWall = false;
   turnSteps  = 0;
+  state = forward;
+
+  //Setup timer intrrupt for stepper motor
+  Timer1.initialize(10000);
+  Timer1.attachInterrupt(moveStepHandler);
 }
 
 void readUltrasonicData(void) {
-  leftDist = left_hcsr04.distanceInMillimeters();
-  rightDist = right_hcsr04.distanceInMillimeters();
-  frontDist = front_hcsr04.distanceInMillimeters();
-  Serial.print("left: " + String(leftDist));
-  Serial.print("\tright :" + String(rightDist));
-  Serial.println("\tfront :" + String(frontDist));
+  leftDist = left_hcsr04.ping_cm();
+  rightDist = right_hcsr04.ping_cm();
+  frontDist = front_hcsr04.ping_cm();
+//  leftDist = left_hcsr04.distanceInMillimeters();
+//  rightDist = right_hcsr04.distanceInMillimeters();
+//  frontDist = front_hcsr04.distanceInMillimeters();
+//  Serial.print("left: " + String(leftDist));
+//  Serial.print("\tright :" + String(rightDist));
+//  Serial.println("\tfront :" + String(frontDist));
 }
 
 void checkWalls()
 {
   //checking walls
-  if (rightDist < DEADEND_DIST)
+  if (rightDist < DEADEND_DIST && rightDist != 0)
     rightWall = true;
   else
     rightWall = false;
 
-  if (leftDist < DEADEND_DIST)
+  if (leftDist < DEADEND_DIST && leftDist != 0)
     leftWall = true;
   else
     leftWall = false;
 
-  if (frontDist < DEADEND_DIST)
+  if (frontDist < DEADEND_DIST && frontDist != 0)
     frontWall = true;
   else
     frontWall = false;
@@ -94,104 +112,103 @@ void checkWalls()
 
 void checkState()
 {
-  if (state == beforeTurn)
-    return;
-  if (state == afterTurn)
-    return;
-  if (!leftWall)
-    state = turnLeft;
-  else if (!frontWall)
-    state = forward;
-  else if (!rightWall)
-    state = turnRight;
-  else
-    state = turn180;
+//  if (state == turnRight || state == turnLeft || state == turn180)
+//    return;
+  state = forward;
+  if (frontWall)
+    state = pause;
+//  if (!leftWall)
+//    state = turnLeft;
+//  else if (!frontWall)
+//    state = forward;
+//  else if (!rightWall)
+//    state = turnRight;
+//  else
+//    state = turn180;
 //  Serial.println(String(state));
+}
+
+void moveStepHandler(void) {
+//  if(stepLock == false) {
+      Serial.println("inside");
+      stepperLeft.step(LEFT_FORWARD * 1);
+      stepperRight.step(RIGHT_FORWARD * 1);
+//  }
 }
 
 void moveSteps(int rightMove, int leftMove)
 {
-  for (int i = 0; i < STEP_NUM; i++)
-  {
-    stepperLeft.step(LEFT_FORWARD * leftMove);
-    stepperRight.step(RIGHT_FORWARD * rightMove);
-  }
+    for (int i = 0; i < STEP_NUM; i++)
+    {
+      stepperLeft.step(LEFT_FORWARD * leftMove);
+      stepperRight.step(RIGHT_FORWARD * rightMove);
+    }
 }
 
 void moveByState()
 {
-  if (state == beforeTurn)
-  {
-    if (turnSteps < 10 * ONE_CM)
-    {
-      moveSteps(1, 1);
-      turnSteps += STEP_NUM;
-    }
-    else
-    {
-      turnSteps = 0;
-      state = forward;
-    }
-  }
-  else if (state == afterTurn)
-  {
-    if (turnSteps < 15 * ONE_CM)
-    {
-      moveSteps(1, 1);
-      turnSteps += STEP_NUM;
-    }
-    else
-    {
-      turnSteps = 0;
-      state = forward;
-    }
-  }
+  if (state == pause)
+      stepLock = true;
   else if (state == forward)
-    moveSteps(1, 1);
-  else if (state == turnLeft)
-  {
-    if (turnSteps < (WHEELS_DIST * PI / 2) * ONE_CM)
-    {
-      moveSteps(1, -1);
-      turnSteps += STEP_NUM;
-    }
-    else
-    {
-      turnSteps = 0;
-      state = afterTurn;
-    }
-  }
-  else if (state == turnRight)
-  {
-    if (turnSteps < (WHEELS_DIST * PI / 2) * ONE_CM)
-    {
-      moveSteps(-1, 1);
-      turnSteps += STEP_NUM;
-    }
-    else
-    {
-      turnSteps = 0;
-      state = afterTurn;
-    }
-  }
-  else if (state == turn180)
-  {
-    if (turnSteps < (WHEELS_DIST * PI / 2) * ONE_CM)
-    {
-      moveSteps(1, -1);
-      turnSteps += STEP_NUM;
-    }
-    else
-    {
-      turnSteps = 0;
-      state = forward;
-    }
-  }
+      stepLock = false;
+//  else if (state == turnLeft)
+//  {
+//    if (turnSteps < (WHEELS_DIST * PI / 4) * ONE_CM)
+//    {
+//      moveSteps(1, -1);
+//      turnSteps += STEP_NUM;
+//    }
+//    else
+//    {
+//      turnSteps = 0;
+//      state = forward;
+//    }
+//  }
+//  else if (state == turnRight)
+//  {
+//    if (turnSteps < (WHEELS_DIST * PI / 4) * ONE_CM)
+//    {
+//      moveSteps(-1, 1);
+//      turnSteps += STEP_NUM;
+//    }
+//    else
+//    {
+//      turnSteps = 0;
+//      state = forward;
+//    }
+//  }
+//  else if (state == turn180)
+//  {
+//    if (turnSteps < (WHEELS_DIST * PI / 2) * ONE_CM)
+//    {
+//      moveSteps(1, -1);
+//      turnSteps += STEP_NUM;
+//    }
+//    else
+//    {
+//      turnSteps = 0;
+//      state = forward;
+//    }
+//  }
 }
 
 void loop() {
-  readUltrasonicData();
-  //checkWalls();
-  //checkState();
-  //moveByState();
+//  readUltrasonicData();
+//  checkWalls();
+//  checkState();
+//  moveByState();
+}
+
+String stateToString()
+{
+  if (state == turnLeft)
+    return "turnLeft";
+  else if (state == turnRight)
+    return "turnRight";
+  else if (state == forward)
+    return "forward";
+  else if (state == turn180)
+    return "turn180";
+  else
+    return "unknown state";
 }
