@@ -9,7 +9,7 @@
 #define ONE_CM (ONE_REV / 18.2)
 #define WHEELS_DIST (16.7)
 
-#define STEP_NUM (10)
+#define STEP_NUM (100)
 #define LEFT_FORWARD (1) 
 #define LEFT_BACK (-1)
 #define RIGHT_FORWARD (-1)
@@ -55,9 +55,6 @@ bool leftWall, rightWall, frontWall;
 
 int turnSteps;
 
-//lock for stepper motor forward move
-byte stepLock = true;
-
 void setup(){
   //Serial initilization
   Serial.begin(9600);
@@ -69,10 +66,6 @@ void setup(){
   leftWall = rightWall = frontWall = false;
   turnSteps  = 0;
   state = forward;
-
-  //Setup timer intrrupt for stepper motor
-  Timer1.initialize(10000);
-  Timer1.attachInterrupt(moveStepHandler);
 }
 
 void readUltrasonicData(void) {
@@ -82,9 +75,9 @@ void readUltrasonicData(void) {
 //  leftDist = left_hcsr04.distanceInMillimeters();
 //  rightDist = right_hcsr04.distanceInMillimeters();
 //  frontDist = front_hcsr04.distanceInMillimeters();
-//  Serial.print("left: " + String(leftDist));
-//  Serial.print("\tright :" + String(rightDist));
-//  Serial.println("\tfront :" + String(frontDist));
+  Serial.print("left: " + String(leftDist));
+  Serial.print("\tright :" + String(rightDist));
+  Serial.println("\tfront :" + String(frontDist));
 }
 
 void checkWalls()
@@ -104,7 +97,7 @@ void checkWalls()
     frontWall = true;
   else
     frontWall = false;
-
+//
 //  Serial.print("leftWall: " + String(leftWall));
 //  Serial.print("\trightWall: " + String(rightWall));
 //  Serial.println("\tfrontWall: " + String(frontWall));
@@ -112,28 +105,17 @@ void checkWalls()
 
 void checkState()
 {
-//  if (state == turnRight || state == turnLeft || state == turn180)
-//    return;
+  if (state == turnRight || state == turnLeft || state == turn180)
+    return;
   state = forward;
-  if (frontWall)
-    state = pause;
-//  if (!leftWall)
-//    state = turnLeft;
-//  else if (!frontWall)
-//    state = forward;
-//  else if (!rightWall)
-//    state = turnRight;
-//  else
-//    state = turn180;
-//  Serial.println(String(state));
-}
-
-void moveStepHandler(void) {
-//  if(stepLock == false) {
-      Serial.println("inside");
-      stepperLeft.step(LEFT_FORWARD * 1);
-      stepperRight.step(RIGHT_FORWARD * 1);
-//  }
+  if (!leftWall)
+    state = turnLeft;
+  else if (!frontWall)
+    state = forward;
+  else if (!rightWall)
+    state = turnRight;
+  else
+    state = turn180;
 }
 
 void moveSteps(int rightMove, int leftMove)
@@ -148,55 +130,56 @@ void moveSteps(int rightMove, int leftMove)
 void moveByState()
 {
   if (state == pause)
-      stepLock = true;
+      delay(1000);
   else if (state == forward)
-      stepLock = false;
-//  else if (state == turnLeft)
-//  {
-//    if (turnSteps < (WHEELS_DIST * PI / 4) * ONE_CM)
-//    {
-//      moveSteps(1, -1);
-//      turnSteps += STEP_NUM;
-//    }
-//    else
-//    {
-//      turnSteps = 0;
-//      state = forward;
-//    }
-//  }
-//  else if (state == turnRight)
-//  {
-//    if (turnSteps < (WHEELS_DIST * PI / 4) * ONE_CM)
-//    {
-//      moveSteps(-1, 1);
-//      turnSteps += STEP_NUM;
-//    }
-//    else
-//    {
-//      turnSteps = 0;
-//      state = forward;
-//    }
-//  }
-//  else if (state == turn180)
-//  {
-//    if (turnSteps < (WHEELS_DIST * PI / 2) * ONE_CM)
-//    {
-//      moveSteps(1, -1);
-//      turnSteps += STEP_NUM;
-//    }
-//    else
-//    {
-//      turnSteps = 0;
-//      state = forward;
-//    }
-//  }
+      moveSteps(1, 1);
+  else if (state == turnLeft)
+  {
+    if (turnSteps < (WHEELS_DIST * PI / 4) * ONE_CM)
+    {
+      moveSteps(1, -1);
+      turnSteps += STEP_NUM;
+    }
+    else
+    {
+      turnSteps = 0;
+      state = forward;
+    }
+  }
+  else if (state == turnRight)
+  {
+    if (turnSteps < (WHEELS_DIST * PI / 4) * ONE_CM)
+    {
+      moveSteps(-1, 1);
+      turnSteps += STEP_NUM;
+    }
+    else
+    {
+      turnSteps = 0;
+      state = forward;
+    }
+  }
+  else if (state == turn180)
+  {
+    if (turnSteps < (WHEELS_DIST * PI / 2) * ONE_CM)
+    {
+      moveSteps(1, -1);
+      turnSteps += STEP_NUM;
+    }
+    else
+    {
+      turnSteps = 0;
+      state = forward;
+    }
+  }
 }
 
 void loop() {
-//  readUltrasonicData();
-//  checkWalls();
-//  checkState();
-//  moveByState();
+  readUltrasonicData();
+  checkWalls();
+  checkState();
+  moveByState();
+  Serial.println("my state: " + stateToString());
 }
 
 String stateToString()
