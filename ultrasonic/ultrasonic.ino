@@ -32,9 +32,9 @@ Stepper stepperRight(STEPS, 4, 6, 5, 7);
 #define DEADEND_SIDE_DIST (20)
 #define BEFORE_TURN (23)
 #define AFTER_TURN (13)
-#define TURN_DELAY (250)
+#define TURN_DELAY (350)
 
-#define TURN_LEFT_STEPS (((WHEELS_DIST + 0.15) * PI / 4) * ONE_CM)
+#define TURN_LEFT_STEPS (((WHEELS_DIST + 0.2) * PI / 4) * ONE_CM)
 #define TURN_RIGHT_STEPS (((WHEELS_DIST + 0.75) * PI / 4) * ONE_CM)
 
 
@@ -57,6 +57,7 @@ NewPing front_hcsr04(SR_FRONT_TRIG, SR_FRONT_ECHO, MAX_PING_DIST);
 unsigned long leftDist, rightDist, frontDist;
 unsigned long leftDist1, leftDist2, leftDist3, rightDist1, rightDist2, rightDist3, frontDist1, frontDist2, frontDist3;
 bool leftWall, rightWall, frontWall;
+int leftWallCount, rightWallCount, frontWallCount;
 
 int turnSteps, afterIntersectionSteps;
 
@@ -68,9 +69,12 @@ void setup(){
   stepperLeft.setSpeed(200);
   stepperRight.setSpeed(200);
   leftDist = rightDist = 5;
-  frontDist = MAX_PING_DIST;
+  frontDist = frontDist1 = MAX_PING_DIST;
+  leftDist1 = rightDist1 = 5;
   leftWall = rightWall = frontWall = false;
   turnSteps  = 0;
+  rightWallCount = leftWallCount = 3;
+  frontWallCount = 0;
   state = forward;
 }
 
@@ -83,19 +87,6 @@ void readUltrasonicData(void) {
   if(rightDist1 != 0) rightDist = rightDist1;
   if(frontDist1 != 0) frontDist = frontDist1;
   
-//  //calculate sensor average
-//  leftDist2 = leftDist1;
-//  leftDist3 = leftDist2;
-//  leftDist1 = leftDist;
-//  leftDist = (leftDist1 + leftDist2 + leftDist3 ) / 3;
-//  rightDist2 = rightDist1;
-//  rightDist3 = rightDist2;
-//  rightDist1 = rightDist;
-//  rightDist = (rightDist1 + rightDist2 + rightDist3 ) / 3;
-//  frontDist2 = frontDist1;
-//  frontDist3 = frontDist2;
-//  frontDist1 = frontDist;
-//  frontDist = (frontDist1 + frontDist2 + frontDist3 ) / 3;
 //  Serial.print("left: " + String(leftDist1));
 //  Serial.print("\tright :" + String(rightDist1));
 //  Serial.println("\tfront :" + String(frontDist1));
@@ -105,16 +96,42 @@ void checkWalls()
 {
   //checking walls
   if (rightDist < DEADEND_SIDE_DIST)
+    rightWallCount ++;
+  else
+    rightWallCount --;
+
+  if (leftDist < DEADEND_SIDE_DIST)
+    leftWallCount ++;
+  else
+    leftWallCount --;
+
+  if (frontDist < DEADEND_FWD_DIST)
+    frontWallCount ++;
+  else
+    frontWallCount --;
+
+  if (rightWallCount > 3)
+    rightWallCount = 3;
+  if (leftWallCount > 3)
+    leftWallCount = 3;
+  if (frontWallCount > 3)
+    frontWallCount = 3;
+  if (rightWallCount < 0)
+    rightWallCount = 0;
+  if (leftWallCount < 0)
+    leftWallCount = 0;
+  if (frontWallCount < 0)
+    frontWallCount = 0;
+  
+  if (rightWallCount >= 2)
     rightWall = true;
   else
     rightWall = false;
-
-  if (leftDist < DEADEND_SIDE_DIST)
+  if (leftWallCount >= 2)
     leftWall = true;
   else
     leftWall = false;
-
-  if (frontDist < DEADEND_FWD_DIST)
+  if (frontWallCount >= 2)
     frontWall = true;
   else
     frontWall = false;
@@ -191,20 +208,16 @@ void moveByState()
     delay(TURN_DELAY);
     readUltrasonicData();
     checkWalls();
+    readUltrasonicData();
+    checkWalls();
+    readUltrasonicData();
+    checkWalls();
     if (!rightWall)
       state = reverseTurnRight;
     else if (!leftWall)
       state = reverseTurnLeft;
     else
       state = pause;
-//    if (intersection == inter_X || intersection == inter_T || intersection == inter_right_fwd || intersection == inter_right)
-//      state = reverseTurnRight;
-//    else if (intersection == inter_left_fwd)
-//      state = turn180;
-//    else if (intersection == inter_left)
-//      state = reverseTurnLeft;
-//    else
-//      state = pause;
   }
   else if (state == reverseTurnRight)
   {
@@ -212,6 +225,7 @@ void moveByState()
     moveSteps(-1, 1, TURN_RIGHT_STEPS);
     delay(TURN_DELAY);
     state = afterTurnLeft;
+    afterIntersectionSteps = 0;
   }
   else if (state == reverseTurnLeft)
   {
@@ -222,8 +236,13 @@ void moveByState()
     moveSteps(-1, -1, 8 * ONE_CM);
     readUltrasonicData();
     checkWalls();
+    readUltrasonicData();
+    checkWalls();
+    readUltrasonicData();
+    checkWalls();
     if (!leftWall)
       state = turnLeft;
+    afterIntersectionSteps = 0;
   }
 //  else if (state == turn180)
 //  {
