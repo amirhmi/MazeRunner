@@ -49,9 +49,6 @@ enum {
 NewPing left_hcsr04(SR_LEFT_TRIG, SR_LEFT_ECHO, MAX_PING_DIST);
 NewPing right_hcsr04(SR_RIGHT_TRIG, SR_RIGHT_ECHO, MAX_PING_DIST);
 NewPing front_hcsr04(SR_FRONT_TRIG, SR_FRONT_ECHO, MAX_PING_DIST);
-//HCSR04 left_hcsr04(SR_LEFT_TRIG, SR_LEFT_ECHO, MIN_PING_DIST, MAX_PING_DIST);
-//HCSR04 right_hcsr04(SR_RIGHT_TRIG, SR_RIGHT_ECHO, MIN_PING_DIST, MAX_PING_DIST);
-//HCSR04 front_hcsr04(SR_FRONT_TRIG, SR_FRONT_ECHO, MIN_PING_DIST, MAX_PING_DIST);
 
 //Global variables
 unsigned long leftDist, rightDist, frontDist;
@@ -204,7 +201,7 @@ void moveByState()
   else if (state == reverseGear)
   {
     delay(TURN_DELAY);
-    moveSteps(-1, -1, afterIntersectionSteps + ONE_CM * 9);
+    moveSteps(-1, -1, afterIntersectionSteps + ONE_CM * 8.5);
     delay(TURN_DELAY);
     readUltrasonicData();
     checkWalls();
@@ -270,6 +267,10 @@ void checkIntersection ()
 }
 
 void loop() {
+  readUltrasonicData();
+  checkWalls();
+  readUltrasonicData();
+  checkWalls();
   readUltrasonicData();
   checkWalls();
   checkState();
