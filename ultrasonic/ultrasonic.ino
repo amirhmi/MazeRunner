@@ -1,6 +1,5 @@
 #include <NewPing.h>
 #include <Stepper.h>
-#include "TimerOne.h"
 
 // Stepper motor defenitions and constructor 
 #define STEPS (200)
@@ -30,13 +29,13 @@ Stepper stepperRight(STEPS, 4, 6, 5, 7);
 #define MIN_PING_DIST (2)
 #define DEADEND_FWD_DIST (5)
 #define DEADEND_SIDE_DIST (20)
-#define BEFORE_TURN (23)
-#define AFTER_TURN (13)
-#define TURN_DELAY (350)
+#define BEFORE_TURN (22)
+#define AFTER_TURN (12)
+#define TURN_DELAY (500)
 
 #define TURN_LEFT_STEPS (((WHEELS_DIST + 0.2) * PI / 4) * ONE_CM)
 #define TURN_RIGHT_STEPS (((WHEELS_DIST + 0.75) * PI / 4) * ONE_CM)
-
+#define READ_ULTRASONIC_NUM (5)
 
 enum {
   forward, turn180, turnLeft, turnRight, pause, beforeTurnLeft, afterTurnLeft, reverseGear, reverseTurnLeft, reverseTurnRight
@@ -70,19 +69,23 @@ void setup(){
   leftDist1 = rightDist1 = 5;
   leftWall = rightWall = frontWall = false;
   turnSteps  = 0;
-  rightWallCount = leftWallCount = 3;
+  rightWallCount = leftWallCount = 5;
   frontWallCount = 0;
   state = forward;
 }
 
-void readUltrasonicData(void) {
-  leftDist1 = left_hcsr04.ping_cm();
-  rightDist1 = right_hcsr04.ping_cm();
-  frontDist1 = front_hcsr04.ping_cm();
-
-  if(leftDist1 != 0) leftDist = leftDist1;
-  if(rightDist1 != 0) rightDist = rightDist1;
-  if(frontDist1 != 0) frontDist = frontDist1;
+void readUltrasonicData(int num) {
+  for(int i=0; i<num; i++) {
+    leftDist1 = left_hcsr04.ping_cm();
+    rightDist1 = right_hcsr04.ping_cm();
+    frontDist1 = front_hcsr04.ping_cm();
+  
+    if(leftDist1 != 0) leftDist = leftDist1;
+    if(rightDist1 != 0) rightDist = rightDist1;
+    if(frontDist1 != 0) frontDist = frontDist1;
+  
+    checkWalls();
+  }
   
 //  Serial.print("left: " + String(leftDist1));
 //  Serial.print("\tright :" + String(rightDist1));
@@ -107,12 +110,12 @@ void checkWalls()
   else
     frontWallCount --;
 
-  if (rightWallCount > 3)
-    rightWallCount = 3;
-  if (leftWallCount > 3)
-    leftWallCount = 3;
-  if (frontWallCount > 3)
-    frontWallCount = 3;
+  if (rightWallCount > 5)
+    rightWallCount = 5;
+  if (leftWallCount > 5)
+    leftWallCount = 5;
+  if (frontWallCount > 5)
+    frontWallCount = 5;
   if (rightWallCount < 0)
     rightWallCount = 0;
   if (leftWallCount < 0)
@@ -120,15 +123,15 @@ void checkWalls()
   if (frontWallCount < 0)
     frontWallCount = 0;
   
-  if (rightWallCount >= 2)
+  if (rightWallCount >= 5)
     rightWall = true;
   else
     rightWall = false;
-  if (leftWallCount >= 2)
+  if (leftWallCount >= 5)
     leftWall = true;
   else
     leftWall = false;
-  if (frontWallCount >= 2)
+  if (frontWallCount >= 5)
     frontWall = true;
   else
     frontWall = false;
@@ -175,6 +178,13 @@ void moveByState()
   {
     moveSteps(1, 1, (BEFORE_TURN) * ONE_CM);
     state = turnLeft;
+    readUltrasonicData(1);
+    while (frontDist < 35 && frontDist > 3)
+    {
+      delay(250);
+      moveSteps(1, 1, ONE_CM);
+      readUltrasonicData(1);
+    }
   }
   else if (state == afterTurnLeft)
   {
@@ -203,12 +213,7 @@ void moveByState()
     delay(TURN_DELAY);
     moveSteps(-1, -1, afterIntersectionSteps + ONE_CM * 8.5);
     delay(TURN_DELAY);
-    readUltrasonicData();
-    checkWalls();
-    readUltrasonicData();
-    checkWalls();
-    readUltrasonicData();
-    checkWalls();
+    readUltrasonicData(READ_ULTRASONIC_NUM);
     if (!rightWall)
       state = reverseTurnRight;
     else if (!leftWall)
@@ -231,12 +236,7 @@ void moveByState()
     delay(TURN_DELAY);
     state = forward;
     moveSteps(-1, -1, 8 * ONE_CM);
-    readUltrasonicData();
-    checkWalls();
-    readUltrasonicData();
-    checkWalls();
-    readUltrasonicData();
-    checkWalls();
+    readUltrasonicData(READ_ULTRASONIC_NUM);
     if (!leftWall)
       state = turnLeft;
     afterIntersectionSteps = 0;
@@ -267,12 +267,7 @@ void checkIntersection ()
 }
 
 void loop() {
-  readUltrasonicData();
-  checkWalls();
-  readUltrasonicData();
-  checkWalls();
-  readUltrasonicData();
-  checkWalls();
+  readUltrasonicData(5);
   checkState();
   moveByState();
   checkIntersection();
