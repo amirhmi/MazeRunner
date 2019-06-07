@@ -32,6 +32,10 @@ Stepper stepperRight(STEPS, 4, 6, 5, 7);
 #define DEADEND_SIDE_DIST (20)
 #define BEFORE_TURN (23)
 #define AFTER_TURN (13)
+#define TURN_DELAY (250)
+
+#define TURN_LEFT_STEPS (((WHEELS_DIST + 0.15) * PI / 4) * ONE_CM)
+#define TURN_RIGHT_STEPS (((WHEELS_DIST + 0.75) * PI / 4) * ONE_CM)
 
 
 enum {
@@ -49,9 +53,6 @@ NewPing front_hcsr04(SR_FRONT_TRIG, SR_FRONT_ECHO, MAX_PING_DIST);
 //HCSR04 right_hcsr04(SR_RIGHT_TRIG, SR_RIGHT_ECHO, MIN_PING_DIST, MAX_PING_DIST);
 //HCSR04 front_hcsr04(SR_FRONT_TRIG, SR_FRONT_ECHO, MIN_PING_DIST, MAX_PING_DIST);
 
-//Timer for SR04
-#define SR_TIMER (500)
-
 //Global variables
 unsigned long leftDist, rightDist, frontDist;
 unsigned long leftDist1, leftDist2, leftDist3, rightDist1, rightDist2, rightDist3, frontDist1, frontDist2, frontDist3;
@@ -66,49 +67,54 @@ void setup(){
   // set the speed of the motor to 30 RPMs
   stepperLeft.setSpeed(200);
   stepperRight.setSpeed(200);
-  leftDist = rightDist = frontDist = MAX_PING_DIST;
+  leftDist = rightDist = 5;
+  frontDist = MAX_PING_DIST;
   leftWall = rightWall = frontWall = false;
   turnSteps  = 0;
   state = forward;
 }
 
 void readUltrasonicData(void) {
-  leftDist = left_hcsr04.ping_cm();
-  rightDist = right_hcsr04.ping_cm();
-  frontDist = front_hcsr04.ping_cm();
-  //calculate sensor average[
+  leftDist1 = left_hcsr04.ping_cm();
+  rightDist1 = right_hcsr04.ping_cm();
+  frontDist1 = front_hcsr04.ping_cm();
+
+  if(leftDist1 != 0) leftDist = leftDist1;
+  if(rightDist1 != 0) rightDist = rightDist1;
+  if(frontDist1 != 0) frontDist = frontDist1;
   
-  leftDist2 = leftDist1;
-  leftDist3 = leftDist2;
-  leftDist1 = leftDist;
-  leftDist = (leftDist1 + leftDist2 + leftDist3 ) / 3;
-  rightDist2 = rightDist1;
-  rightDist3 = rightDist2;
-  rightDist1 = rightDist;
-  rightDist = (rightDist1 + rightDist2 + rightDist3 ) / 3;
-  frontDist2 = frontDist1;
-  frontDist3 = frontDist2;
-  frontDist1 = frontDist;
-  frontDist = (frontDist1 + frontDist2 + frontDist3 ) / 3;
-  Serial.print("left: " + String(leftDist));
-  Serial.print("\tright :" + String(rightDist));
-  Serial.println("\tfront :" + String(frontDist));
+//  //calculate sensor average
+//  leftDist2 = leftDist1;
+//  leftDist3 = leftDist2;
+//  leftDist1 = leftDist;
+//  leftDist = (leftDist1 + leftDist2 + leftDist3 ) / 3;
+//  rightDist2 = rightDist1;
+//  rightDist3 = rightDist2;
+//  rightDist1 = rightDist;
+//  rightDist = (rightDist1 + rightDist2 + rightDist3 ) / 3;
+//  frontDist2 = frontDist1;
+//  frontDist3 = frontDist2;
+//  frontDist1 = frontDist;
+//  frontDist = (frontDist1 + frontDist2 + frontDist3 ) / 3;
+//  Serial.print("left: " + String(leftDist1));
+//  Serial.print("\tright :" + String(rightDist1));
+//  Serial.println("\tfront :" + String(frontDist1));
 }
 
 void checkWalls()
 {
   //checking walls
-  if (rightDist < DEADEND_SIDE_DIST && rightDist != 0)
+  if (rightDist < DEADEND_SIDE_DIST)
     rightWall = true;
   else
     rightWall = false;
 
-  if (leftDist < DEADEND_SIDE_DIST && leftDist != 0)
+  if (leftDist < DEADEND_SIDE_DIST)
     leftWall = true;
   else
     leftWall = false;
 
-  if (frontDist < DEADEND_FWD_DIST && frontDist != 0)
+  if (frontDist < DEADEND_FWD_DIST)
     frontWall = true;
   else
     frontWall = false;
@@ -164,19 +170,25 @@ void moveByState()
   }
   else if (state == turnLeft)
   {
-    moveSteps(1, -1, ((WHEELS_DIST - 1) * PI / 4) * ONE_CM);
+    delay(TURN_DELAY);
+    moveSteps(1, -1, TURN_LEFT_STEPS);
+    delay(TURN_DELAY);
     state = afterTurnLeft;
     afterIntersectionSteps = 0;
   }
   else if (state == turnRight)
   {
-    moveSteps(-1, 1, ((WHEELS_DIST + 0.35) * PI / 4) * ONE_CM);
+    delay(TURN_DELAY);
+    moveSteps(-1, 1, TURN_RIGHT_STEPS);
+    delay(TURN_DELAY);
     state = forward;
     afterIntersectionSteps = 0;
   }
   else if (state == reverseGear)
   {
-    moveSteps(-1, -1, afterIntersectionSteps + ONE_CM * 11);
+    delay(TURN_DELAY);
+    moveSteps(-1, -1, afterIntersectionSteps + ONE_CM * 9);
+    delay(TURN_DELAY);
     readUltrasonicData();
     checkWalls();
     if (!rightWall)
@@ -196,12 +208,16 @@ void moveByState()
   }
   else if (state == reverseTurnRight)
   {
-    moveSteps(-1, 1, ((WHEELS_DIST + 0.35) * PI / 4) * ONE_CM);
+    delay(TURN_DELAY);
+    moveSteps(-1, 1, TURN_RIGHT_STEPS);
+    delay(TURN_DELAY);
     state = afterTurnLeft;
   }
   else if (state == reverseTurnLeft)
   {
-    moveSteps(1, -1, ((WHEELS_DIST - 1) * PI / 4) * ONE_CM);
+    delay(TURN_DELAY);
+    moveSteps(1, -1, TURN_LEFT_STEPS);
+    delay(TURN_DELAY);
     state = forward;
     moveSteps(-1, -1, 8 * ONE_CM);
     readUltrasonicData();
@@ -240,7 +256,6 @@ void loop() {
   checkState();
   moveByState();
   checkIntersection();
-  Serial.println("my state: " + stateToString());
 }
 
 String stateToString()
