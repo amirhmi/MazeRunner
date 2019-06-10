@@ -32,6 +32,7 @@ Stepper stepperRight(STEPS, 4, 6, 5, 7);
 #define BEFORE_TURN (22)
 #define AFTER_TURN (12)
 #define TURN_DELAY (500)
+#define MAJORITY_NUM (5)
 
 #define TURN_LEFT_STEPS (((WHEELS_DIST + 0.2) * PI / 4) * ONE_CM)
 #define TURN_RIGHT_STEPS (((WHEELS_DIST + 0.75) * PI / 4) * ONE_CM)
@@ -86,10 +87,10 @@ void readUltrasonicData(int num) {
   
     checkWalls();
   }
-  
-//  Serial.print("left: " + String(leftDist1));
-//  Serial.print("\tright :" + String(rightDist1));
-//  Serial.println("\tfront :" + String(frontDist1));
+//  
+  Serial.print("left: " + String(leftDist1));
+  Serial.print("\tright :" + String(rightDist1));
+  Serial.println("\tfront :" + String(frontDist1));
 }
 
 void checkWalls()
@@ -110,12 +111,12 @@ void checkWalls()
   else
     frontWallCount --;
 
-  if (rightWallCount > 5)
-    rightWallCount = 5;
-  if (leftWallCount > 5)
-    leftWallCount = 5;
-  if (frontWallCount > 5)
-    frontWallCount = 5;
+  if (rightWallCount > MAJORITY_NUM)
+    rightWallCount = MAJORITY_NUM;
+  if (leftWallCount > MAJORITY_NUM)
+    leftWallCount = MAJORITY_NUM;
+  if (frontWallCount > MAJORITY_NUM)
+    frontWallCount = MAJORITY_NUM;
   if (rightWallCount < 0)
     rightWallCount = 0;
   if (leftWallCount < 0)
@@ -123,15 +124,15 @@ void checkWalls()
   if (frontWallCount < 0)
     frontWallCount = 0;
   
-  if (rightWallCount >= 5)
+  if (rightWallCount >= (MAJORITY_NUM + 1) / 2)
     rightWall = true;
   else
     rightWall = false;
-  if (leftWallCount >= 5)
+  if (leftWallCount >= (MAJORITY_NUM + 1) / 2)
     leftWall = true;
   else
     leftWall = false;
-  if (frontWallCount >= 5)
+  if (frontWallCount >= (MAJORITY_NUM + 1) / 2)
     frontWall = true;
   else
     frontWall = false;
@@ -267,10 +268,20 @@ void checkIntersection ()
 }
 
 void loop() {
-  readUltrasonicData(5);
-  checkState();
-  moveByState();
-  checkIntersection();
+//  readUltrasonicData(5);
+//  checkState();
+//  moveByState();
+//  checkIntersection();
+  Serial.write("$");
+  char c = '0';
+  int dir = 0;
+  for (int i = 0; i < 3; i++)
+  {
+    c = Serial.read();
+    dir = dir * 10 + (c - '0');
+  }
+  if (dir < 180)
+    moveSteps(1, 1, ONE_CM * 1);
 }
 
 String stateToString()
