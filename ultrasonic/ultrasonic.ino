@@ -1,4 +1,4 @@
-#include <NewPing.h>
+ #include <NewPing.h>
 #include <Stepper.h>
 
 // Stepper motor defenitions and constructor 
@@ -32,7 +32,7 @@ Stepper stepperRight(STEPS, 4, 6, 5, 7);
 #define BEFORE_TURN (22)
 #define AFTER_TURN (12)
 #define TURN_DELAY (500)
-#define MAJORITY_NUM (5)
+#define MAJORITY_NUM (3)
 
 #define TURN_LEFT_STEPS (((WHEELS_DIST + 0.2) * PI / 4) * ONE_CM)
 #define TURN_RIGHT_STEPS (((WHEELS_DIST + 0.75) * PI / 4) * ONE_CM)
@@ -185,19 +185,25 @@ void moveSteps(int rightMove, int leftMove, int steps)
     }
 }
 
-void turn90left ()
+void turnToExpected (int expected_heading, int is_left)
 {
-  int expected_heading = getHeading() + 90;
-  expected_heading %= 360;  
-  delay(TURN_DELAY);
   int dif = (expected_heading - getHeading() + 360) % 360;
   while (dif > 1 || dif < -1) // 0 error
   {
-    moveSteps(1, -1, TURN_QUANT);
+    moveSteps(is_left, -1 * is_left, TURN_QUANT);
     dif = (expected_heading - getHeading() + 360) % 360;
   }
+}
+
+void turn90left ()
+{
+  int expected_heading = getHeading() + 90;
+  expected_heading %= 360;
   delay(TURN_DELAY);
-  
+  moveSteps(1, -1, ((((WHEELS_DIST - 1) * PI / 4) * ONE_CM) * 85) / 90);
+  delay(TURN_DELAY);
+  turnToExpected (expected_heading, 1);
+  delay(TURN_DELAY);
 }
 
 void turn90right ()
@@ -205,12 +211,9 @@ void turn90right ()
   int expected_heading = getHeading() + 270;
   expected_heading %= 360;
   delay(TURN_DELAY);
-  int dif = (expected_heading - getHeading() + 360) % 360;
-  while (dif > 1 || dif < -1) // 0 error
-  {
-    moveSteps(-1, 1, TURN_QUANT);
-    dif = (expected_heading - getHeading() + 360) % 360;
-  }
+  moveSteps(-1, 1, ((((WHEELS_DIST - 1) * PI / 4) * ONE_CM) * 85) / 90);
+  delay(TURN_DELAY);
+  turnToExpected (expected_heading, -1);
   delay(TURN_DELAY);
 }
 
