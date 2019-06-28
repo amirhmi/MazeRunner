@@ -1,4 +1,4 @@
- #include <NewPing.h>
+#include <NewPing.h>
 #include <Stepper.h>
 
 // Stepper motor defenitions and constructor 
@@ -32,12 +32,12 @@ Stepper stepperRight(STEPS, 4, 6, 5, 7);
 #define BEFORE_TURN (22)
 #define AFTER_TURN (12)
 #define TURN_DELAY (500)
-#define MAJORITY_NUM (3)
+#define MAJORITY_NUM (5)
 
 #define TURN_LEFT_STEPS (((WHEELS_DIST + 0.2) * PI / 4) * ONE_CM)
 #define TURN_RIGHT_STEPS (((WHEELS_DIST + 0.75) * PI / 4) * ONE_CM)
 #define TURN_QUANT (10)
-#define READ_ULTRASONIC_NUM (5)
+#define READ_ULTRASONIC_NUM (7)
 
 enum {
   forward, turn180, turnLeft, turnRight, pause, beforeTurnLeft, afterTurnLeft, reverseGear, reverseTurnLeft, reverseTurnRight
@@ -56,6 +56,7 @@ unsigned long leftDist, rightDist, frontDist;
 unsigned long leftDist1, leftDist2, leftDist3, rightDist1, rightDist2, rightDist3, frontDist1, frontDist2, frontDist3;
 bool leftWall, rightWall, frontWall;
 int leftWallCount, rightWallCount, frontWallCount;
+int last_heading;
 
 int turnSteps, afterIntersectionSteps;
 
@@ -74,6 +75,7 @@ void setup(){
   rightWallCount = leftWallCount = 5;
   frontWallCount = 0;
   state = forward;
+  last_heading = getHeading();
 }
 
 int getHeading()
@@ -185,36 +187,65 @@ void moveSteps(int rightMove, int leftMove, int steps)
     }
 }
 
-void turnToExpected (int expected_heading, int is_left)
+void correctHeading (int expected_heading)
 {
-  int dif = (expected_heading - getHeading() + 360) % 360;
-  while (dif > 1 || dif < -1) // 0 error
+  int my_heading = getHeading();
+  expected_heading -= 180;
+  my_heading -= 180;
+  int heading_diff = (expected_heading + 360) - my_heading;
+  if (heading_diff > 180)
+    heading_diff -= 360;
+  if (heading_diff < -180)
+    heading_diff += 360;
+  while (heading_diff > 1 || heading_diff < -1)
   {
-    moveSteps(is_left, -1 * is_left, TURN_QUANT);
-    dif = (expected_heading - getHeading() + 360) % 360;
+    if (heading_diff < 0)
+      moveSteps(-1, 1, TURN_QUANT);
+    else
+      moveSteps(1, -1, TURN_QUANT);
+    my_heading = getHeading() - 180;
+    heading_diff = (expected_heading +360) - my_heading;
+    if (heading_diff > 180)
+      heading_diff -= 360;
+    if (heading_diff < -180)
+      heading_diff += 360;
   }
 }
 
+//void turnToExpected (int expected_heading, int is_left)
+//{
+//  int dif = (expected_heading - getHeading() + 360) % 360;
+//  while (dif > 1 || dif < -1) // 0 error
+//  {
+//    moveSteps(is_left, -1 * is_left, TURN_QUANT);
+//    dif = (expected_heading - getHeading() + 360) % 360;
+//  }
+//}
+
 void turn90left ()
 {
-  int expected_heading = getHeading() + 90;
+  int expected_heading = last_heading + 90;
   expected_heading %= 360;
   delay(TURN_DELAY);
-  moveSteps(1, -1, ((((WHEELS_DIST - 1) * PI / 4) * ONE_CM) * 85) / 90);
+  moveSteps(1, -1, ((((WHEELS_DIST - 1) * PI / 4) * ONE_CM)));
   delay(TURN_DELAY);
-  turnToExpected (expected_heading, 1);
+  //turnToExpected (expected_heading, 1);
+  correctHeading(expected_heading);
   delay(TURN_DELAY);
+  last_heading = expected_heading;
 }
 
 void turn90right ()
 {
-  int expected_heading = getHeading() + 270;
+  int expected_heading = last_heading + 270;
   expected_heading %= 360;
   delay(TURN_DELAY);
-  moveSteps(-1, 1, ((((WHEELS_DIST - 1) * PI / 4) * ONE_CM) * 85) / 90);
+  moveSteps(-1, 1, ((((WHEELS_DIST - 1) * PI / 4) * ONE_CM)));
   delay(TURN_DELAY);
-  turnToExpected (expected_heading, -1);
+  //turnToExpected (expected_heading, -1);
+  correctHeading(expected_heading);
   delay(TURN_DELAY);
+  last_heading = expected_heading;
 }
 
 void moveByState()
@@ -264,8 +295,8 @@ void moveByState()
       state = reverseTurnRight;
     else if (!leftWall)
       state = reverseTurnLeft;
-    else
-      state = pause;
+//    else
+//      state = pause;
   }
   else if (state == reverseTurnRight)
   {
@@ -313,6 +344,7 @@ void loop() {
   checkState();
   moveByState();
   checkIntersection();
+  correctHeading(last_heading);
 }
 
 String stateToString()
