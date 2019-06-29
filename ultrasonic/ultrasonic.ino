@@ -40,7 +40,7 @@ Stepper stepperRight(STEPS, 4, 6, 5, 7);
 #define READ_ULTRASONIC_NUM (7)
 
 enum {
-  forward, turn180, turnLeft, turnRight, pause, beforeTurnLeft, afterTurnLeft, reverseGear, reverseTurnLeft, reverseTurnRight
+  forward, turnLeft, turnRight, pause, beforeTurnLeft, afterTurnLeft, reverseGear, reverseTurnLeft, reverseTurnRight
 }state;
 
 enum {
@@ -54,7 +54,7 @@ NewPing front_hcsr04(SR_FRONT_TRIG, SR_FRONT_ECHO, MAX_PING_DIST);
 //Global variables
 unsigned long leftDist, rightDist, frontDist;
 unsigned long leftDist1, leftDist2, leftDist3, rightDist1, rightDist2, rightDist3, frontDist1, frontDist2, frontDist3;
-bool leftWall, rightWall, frontWall;
+bool leftWall, rightWall, frontWall, wasReverse;
 int leftWallCount, rightWallCount, frontWallCount;
 int last_heading;
 
@@ -103,13 +103,16 @@ void readUltrasonicData(int num) {
     if(leftDist1 != 0) leftDist = leftDist1;
     if(rightDist1 != 0) rightDist = rightDist1;
     if(frontDist1 != 0) frontDist = frontDist1;
-  
+    
     checkWalls();
   }
-//  
+
 //  Serial.print("left: " + String(leftDist1));
 //  Serial.print("\tright :" + String(rightDist1));
 //  Serial.println("\tfront :" + String(frontDist1));
+//  Serial.print("leftWall: " + String(leftWall));
+//  Serial.print("\trightWall: " + String(rightWall));
+//  Serial.println("\tfrontWall: " + String(frontWall));
 }
 
 void checkWalls()
@@ -155,7 +158,7 @@ void checkWalls()
     frontWall = true;
   else
     frontWall = false;
-//
+
 //  Serial.print("leftWall: " + String(leftWall));
 //  Serial.print("\trightWall: " + String(rightWall));
 //  Serial.println("\tfrontWall: " + String(frontWall));
@@ -165,7 +168,7 @@ void checkState()
 {
   if (state == pause) // for testing
     return;
-  if (state == turnRight || state == turnLeft || state == beforeTurnLeft || state == afterTurnLeft || state == reverseGear || state == reverseTurnRight || state == reverseTurnLeft || state == turn180)
+  if (state == turnRight || state == turnLeft || state == beforeTurnLeft || state == afterTurnLeft || state == reverseGear || state == reverseTurnRight || state == reverseTurnLeft)
     return;
   state = forward;
   if (!leftWall)
@@ -262,6 +265,8 @@ void moveByState()
     readUltrasonicData(1);
     while (frontDist < 35 && frontDist > 3)
     {
+      if (frontDist1 == 0)
+        break;
       delay(50);
       moveSteps(1, 1, ONE_CM);
       readUltrasonicData(1);
@@ -278,6 +283,7 @@ void moveByState()
     turn90left();
     state = afterTurnLeft;
     afterIntersectionSteps = 0;
+    wasReverse = false;
   }
   else if (state == turnRight)
   {
@@ -288,7 +294,7 @@ void moveByState()
   else if (state == reverseGear)
   {
     delay(TURN_DELAY);
-    moveSteps(-1, -1, afterIntersectionSteps + ONE_CM * 8.5);
+    moveSteps(-1, -1, afterIntersectionSteps + ONE_CM * 6);
     delay(TURN_DELAY);
     readUltrasonicData(READ_ULTRASONIC_NUM);
     if (!rightWall)
@@ -303,6 +309,7 @@ void moveByState()
     turn90right();
     state = afterTurnLeft;
     afterIntersectionSteps = 0;
+    wasReverse = true;
   }
   else if (state == reverseTurnLeft)
   {
@@ -345,6 +352,7 @@ void loop() {
   moveByState();
   checkIntersection();
   correctHeading(last_heading);
+  //Serial.println("state = " + stateToString());
 }
 
 String stateToString()
@@ -355,6 +363,18 @@ String stateToString()
     return "turnRight";
   else if (state == forward)
     return "forward";
+  else if (state == pause)
+    return "pause";
+  else if (state == beforeTurnLeft)
+    return "beforeTurnLeft";
+  else if (state == afterTurnLeft)
+    return "afterTurnLeft";
+  else if (state == reverseGear)
+    return "reverseGear";
+  else if (state == reverseTurnLeft)
+    return "reverseTurnLeft";
+  else if (state == reverseTurnRight)
+    return "reverseTurnRight";
   else
     return "unknown state";
 }
