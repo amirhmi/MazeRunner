@@ -80,14 +80,29 @@ void setup(){
 
 int getHeading()
 {
-  Serial.write("$");
-  char c = '0';
-  int dir = 0;
-  for (int i = 0; i < 3; i++)
+  int dir;
+  while (1)
   {
-    while(Serial.available() <= 0);
-    c = Serial.read();
-    dir = dir * 10 + (c - '0');
+    Serial.write("$");
+    unsigned long now = millis();
+    char c = '0';
+    dir = 0;
+    bool breakfor = false;
+    for (int i = 0; i < 3; i++)
+    {
+      while(Serial.available() <= 0)
+        if (millis() - now > 1000)
+        {
+          breakfor = true;
+          break;
+        }
+      if (breakfor)
+        break;
+      c = Serial.read();
+      dir = dir * 10 + (c - '0');
+    }
+    if (!breakfor)
+      break;
   }
 //  while(Serial.available() <= 0);
 //  Serial.read();
@@ -202,7 +217,9 @@ void correctHeading (int expected_heading)
     heading_diff += 360;
   while (heading_diff > 1 || heading_diff < -1)
   {
-    if (heading_diff < 0)
+    if (expected_heading > 90 && my_heading < -90)
+      moveSteps(-1, 1, TURN_QUANT);
+    else if (heading_diff < 0)
       moveSteps(-1, 1, TURN_QUANT);
     else
       moveSteps(1, -1, TURN_QUANT);
@@ -260,7 +277,10 @@ void moveByState()
   }
   else if (state == beforeTurnLeft)
   {
-    moveSteps(1, 1, (BEFORE_TURN) * ONE_CM);
+    moveSteps(1, 1, (BEFORE_TURN - 5) * ONE_CM);
+    readUltrasonicData(1);
+    if (frontDist >= 35)
+      moveSteps(1, 1, 5 * ONE_CM);
     state = turnLeft;
     readUltrasonicData(1);
     while (frontDist < 35 && frontDist > 3)
@@ -294,7 +314,7 @@ void moveByState()
   else if (state == reverseGear)
   {
     delay(TURN_DELAY);
-    moveSteps(-1, -1, afterIntersectionSteps + ONE_CM * 6);
+    moveSteps(-1, -1, afterIntersectionSteps + ONE_CM * 5);
     delay(TURN_DELAY);
     readUltrasonicData(READ_ULTRASONIC_NUM);
     if (!rightWall)
